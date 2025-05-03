@@ -1,0 +1,10 @@
+<!--  --><span><strong>Version 4.12.0</strong> is a significant release introducing <strong>session-less</strong> operation. Until now the plugin was using session to store <strong>User State</strong>, however this was causing problems with the latest versions of Wordpress (loopback errors in Site Health, could not edit files with Theme and Plugin Editor, performance issues). Even <strong>DBOption</strong> user state handler of the plugin was using session.<br /><br />
+When this version is activated the plugin will </span><span style="text-decoration: underline;">automatically switch</span><span> user state handler to <strong>Cookies/DB</strong>. The new handler uses <strong>cookies</strong> and the <strong>database</strong> to store user state. It fully complies with Wordpress directives and resolves the aforementioned problems. It also complies with EU regulation for data protection, <strong>GDPR</strong>, since no user information is kept in cookies.<br /><br />
+</span><span style="font-weight: bold; color: red;">NOTE:</span><span> Please note that in case you have added hooks (PHP scripts) in your website to customize the plugin and these hooks use session (they contain the variable <strong>$_SESSION</strong>), they may not work with Cookies/DB handler. For this reason and also for facing unpredictable issues of the new handler, <strong>Session</strong> user state handler still remains as an option in plugin's <strong>Settings</strong>.<br /><br />
+Other improvements introduced in this version are:
+<ul style="list-style: disc; padding-left: 20px;">
+<li><strong>SFTP</strong> support improved using <strong>PHPSecLib</strong> library.</li>
+<li>Corrected a bug in <strong>FTP Credentials Configurator</strong> that was not correctly handling usernames and passwords containing at (@) and colon (:) characters.</li>
+</ul>
+For more details about this version's changes please visit the Release Notes of the plugin's </span><a href="http://www.iptanus.com/wordpress-plugins/wordpress-file-upload/">support page</a><span>.</span><!--  -->
+<!--  -->

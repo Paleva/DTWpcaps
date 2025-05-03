@@ -26,6 +26,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from dtaidistance import dtw
 from dtaidistance import dtw_visualisation as dtwvis
+from dtaidistance import alignment
 from matplotlib.patches import ConnectionPatch
 from scapy.all import rdpcap
 from scapy.layers.inet import TCP, IP
@@ -47,11 +48,6 @@ def extract_sequence(pcap_file):
             lengths.append(len(data) if data else 0)
     return lengths
 
-def euclidean_distance(seq1, seq2):
-    n = min(len(seq1), len(seq2))
-    diff = np.array(seq1[:n]) - np.array(seq2[:n])
-    return np.sqrt(np.sum(diff ** 2))
-
 def compute_dtw(seq1, seq2):
     """
     Compute DTW distance and obtain the warping paths.
@@ -63,54 +59,78 @@ def compute_dtw(seq1, seq2):
     return distance, best_path
 
 def needleman_wunsch(seq1, seq2, match=1, mismatch=-1, gap=-1):
-    n, m = len(seq1), len(seq2)
-    score = np.zeros((n+1, m+1), dtype=int)
-    pointer = np.empty((n+1, m+1), dtype=object)
+    # """
+    # Perform global Needleman-Wunsch alignment between two sequences.
 
-    # initialize first column and first row
-    for i in range(1, n+1):
-        score[i, 0] = score[i-1, 0] + gap
-        pointer[i, 0] = 'u'  # up
-    for j in range(1, m+1):
-        score[0, j] = score[0, j-1] + gap
-        pointer[0, j] = 'l'  # left
+    # Returns:
+    #   score       : optimal alignment score
+    #   aligned1    : list of elements from seq1 with '-' for gaps
+    #   aligned2    : list of elements from seq2 with '-' for gaps
+    #   path        : list of (i,j) index pairs (None indicates a gap)
+    # """
+    # n, m = len(seq1), len(seq2)
+    # score_matrix = np.zeros((n+1, m+1), dtype=int)
+    # pointer = np.empty((n+1, m+1), dtype=object)
 
-    pointer[0, 0] = None
+    # # initialize
+    # for i in range(1, n+1):
+    #     score_matrix[i, 0] = score_matrix[i-1, 0] + gap
+    #     pointer[i, 0] = 'u'
+    # for j in range(1, m+1):
+    #     score_matrix[0, j] = score_matrix[0, j-1] + gap
+    #     pointer[0, j] = 'l'
+    # pointer[0, 0] = None
 
-    # fill in the score matrix and pointer matrix
-    for i in range(1, n+1):
-        for j in range(1, m+1):
-            s = match if seq1[i-1] == seq2[j-1] else mismatch
-            diag = score[i-1, j-1] + s
-            up   = score[i-1, j] + gap
-            left = score[i, j-1] + gap
-            max_score = max(diag, up, left)
-            score[i, j] = max_score
-            if max_score == diag:
-                pointer[i, j] = 'd'
-            elif max_score == up:
-                pointer[i, j] = 'u'
-            else:
-                pointer[i, j] = 'l'
+    # # fill
+    # for i in range(1, n+1):
+    #     for j in range(1, m+1):
+    #         s = match if seq1[i-1] == seq2[j-1] else mismatch
+    #         diag = score_matrix[i-1, j-1] + s
+    #         up   = score_matrix[i-1, j] + gap
+    #         left = score_matrix[i, j-1] + gap
+    #         best = max(diag, up, left)
+    #         score_matrix[i, j] = best
+    #         if best == diag:
+    #             pointer[i, j] = 'd'
+    #         elif best == up:
+    #             pointer[i, j] = 'u'
+    #         else:
+    #             pointer[i, j] = 'l'
 
-    # traceback to build the alignment path
-    i, j = n, m
-    path = []
-    while i > 0 or j > 0:
-        if i > 0 and j > 0 and pointer[i, j] == 'd':
-            path.append((i-1, j-1))
-            i, j = i-1, j-1
-        elif i > 0 and pointer[i, j] == 'u':
-            path.append((i-1, None))
-            i -= 1
-        elif j > 0 and pointer[i, j] == 'l':
-            path.append((None, j-1))
-            j -= 1
-    path.reverse()
+    # # traceback
+    # aligned1, aligned2, path = [], [], []
+    # i, j = n, m
+    # np.set_printoptions(threshold=np.inf)
+    # print(score_matrix)
+    # print(pointer)
+    # while i > 0 or j > 0:
+    #     move = pointer[i, j]
+    #     if move == 'd':
+    #         aligned1.append(seq1[i-1])
+    #         aligned2.append(seq2[j-1])
+    #         path.append((i-1, j-1))
+    #         i, j = i-1, j-1
+    #     elif move == 'u':
+    #         aligned1.append(seq1[i-1])
+    #         aligned2.append(0)
+    #         path.append((i-1, None))
+    #         i -= 1
+    #     else:  # 'l'
+    #         aligned1.append(0)
+    #         aligned2.append(seq2[j-1])
+    #         path.append((None, j-1))
+    #         j -= 1
 
-    return score[n, m], path
+    # # reverse to original order
+    # aligned1.reverse()
+    # aligned2.reverse()
+    # path.reverse()
+    values, scores, paths = alignment.needleman_wunsch(seq1, seq2)
+    algn, s1a, s2a, = alignment.best_alignment(paths, seq1, seq2, gap=0)
+    return values, s1a, s2a, algn
 
-def smith_waterman(seq1, seq2, match=5, mismatch=-10, gap=-1):
+
+def smith_waterman(seq1, seq2, match=1, mismatch=-1, gap=-2):
     n, m = len(seq1), len(seq2)
     H = np.zeros((n+1, m+1), dtype=int)
     max_score, max_pos = 0, (0,0)
@@ -188,9 +208,7 @@ def main():
     args = parser.parse_args()
 
     seq1 = extract_sequence(args.attacker)
-    print(seq1)
     seq2 = extract_sequence(args.target)
-    print(seq2)
     print(f"Packets: attacker={len(seq1)}, target={len(seq2)}")
     
     max_seq1 = max(seq1)
@@ -199,37 +217,34 @@ def main():
     norm_seq2 = np.array(seq2) / max_seq2
     
     # --- PAYLOAD LENGTHS ---
-    nc, nc_path = needleman_wunsch(norm_seq1, norm_seq2)
+    nw, nw_seq1, nw_seq2, nw_path = needleman_wunsch(norm_seq1, norm_seq2)
     score = smith_waterman(norm_seq1, norm_seq2)
     distance, path = compute_dtw(norm_seq1, norm_seq2)
     
-    print(f"NW best score: {nc:.2f}")
+    print(f"NW best score: {nw:.2f}")
     print(f"SW best score: {score[0]:.2f}")
     print(f"DTW distance: {distance:.2f}")
     print(f"DTW alignment path length: {len(path)} pairs aligned")
-    plot_alignment(seq1, seq2, nc_path, label1='Attacker Payloads (NW)', label2='Target Payloads (NW)', ylabel='Payload Length', filename="nw_alignment_plot.png")
+    plot_alignment(seq1, seq2, nw_path, label1='Attacker Payloads (NW)', label2='Target Payloads (NW)', ylabel='Payload Length', filename="nw_alignment_plot.png")
     plot_alignment(seq1, seq2, path, label1='Attacker Payloads (DTW)', label2='Target Payloads (DTW)', ylabel='Payload Length', filename="dtw_alignment_plot.png")
     dtwvis.plot_warping(seq1, seq2, path, filename="figures/dtw_alignment_plot(dtai).png")
-
+    
 
     print('-----SUBSEQUENCE-----')
     print('Following subsequences were extracted using Smith-Waterman that have the best match between them')
     # Extract subsequence using Smith-Waterman
-    score, sw_path, (i0, i1), (j0, j1) = smith_waterman(seq1, seq2)
-    print(f"SW best score: {score}")  
+    score, sw_path, (i0, i1), (j0, j1) = smith_waterman(norm_seq1, norm_seq2)
+      
     print(f"Seq1 match indices: {i0}-{i1}")  
     print(f"Seq2 match indices: {j0}-{j1}")
-    # Extract subsequence using the indices from Smith-Waterman
-    # Note: i0, i1, j0, j1 are inclusive  
     sw_seq1 = seq1[i0:i1+1]
     sw_seq2 = seq2[j0:j1+1]
-    max_sw1 = max(sw_seq1)
-    max_sw2 = max(sw_seq2)
-    norm_sw_seq1 = np.array(sw_seq1) / max_sw1
-    norm_sw_seq2 = np.array(sw_seq2) / max_sw2
+    norm_sw_seq1 = np.array(sw_seq1) / max(sw_seq1)
+    norm_sw_seq2 = np.array(sw_seq2) / max(sw_seq2)
+    print(f"Subseq lengths: attacker={len(sw_seq1)}, target={len(sw_seq2)}")    
 
     dtw_matrix_sub, dtw_path_sub = compute_dtw(norm_sw_seq1, norm_sw_seq2)
-    nw_sub, nw_sub_path = needleman_wunsch(norm_sw_seq1, norm_sw_seq2)
+    nw_sub, nw_sub_seq1, nw_sub_seq2, nw_sub_path = needleman_wunsch(norm_sw_seq1, norm_sw_seq2)
 
     print(f"NW best score (sub): {nw_sub:.2f}")
     print(f"DTW distance (sub): {dtw_matrix_sub:.2f}")
