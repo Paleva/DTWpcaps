@@ -1,0 +1,54 @@
+---
+- name: Install tcpdump on attacker and defender
+  hosts: attacker, localhost
+  become: true
+  tasks:
+    - name: Update apt cache
+      apt:
+        update_cache: yes
+        cache_valid_time: 3600
+    - name: Install tcpdump
+      apt:
+        name: tcpdump
+        state: present
+
+- name: Start tcpdump on attacker and defender
+  hosts: attacker, localhost
+  become: true
+  gather_facts: false
+  tasks:
+    - name: Start tcpdump
+      shell: nohup sudo tcpdump -i any -B 8192 -w /home/arvo0419/{{inventory_hostname}}_dump.pcap > /dev/null 2>&1 & echo $!
+      async: 3600
+      poll: 0
+      register: tcpdump_job
+
+    - name: Save tcpdump PID
+      set_fact:
+        tcpdump_pid: "{{ tcpdump_pid }}"
+
+- name: Run attack
+  hosts: attacker
+  gather_facts: false
+  tasks:
+    - name: Start attack
+      shell: /home/arvo0419/python/bin/python3 /home/arvo0419/exploit.py http://10.0.1.4 /
+      register: attack_output
+
+    - name: Check if the attack was successful
+      debug:
+        msg: "Attack output: {{ attack_output.stdout }}"
+      when: attack_output is not none
+
+- name: Stop capture and fetch pcaps
+  hosts: attacker, localhost
+  become: true
+  tasks:
+    - name: Stop tcpdump
+      shell: kill -INT {{ tcpdump_pid }} || pkill tcpdump
+
+    - name: Fetch pcap files
+      fetch:
+        src: /home/arvo0419/{{inventory_hostname}}_dump.pcap
+        dest: /home/arvo0419/pcaps/
+        flat: yes
