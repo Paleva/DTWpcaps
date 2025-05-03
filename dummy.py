@@ -42,8 +42,14 @@ def smith_waterman(seq1, seq2, match=1, mismatch=-1, gap=-2):
     return max_score, path, (i_start, i_end), (j_start, j_end)
 
 import numpy as np
+from dtw import *
 
 
 random_nums1 = np.random.randint(0, 10, 10)
 random_nums2 = np.random.randint(0, 10, 10)
-smith_waterman(random_nums1, random_nums2)
+
+alignemnt = dtw(random_nums2, random_nums1, keep_internals=True)
+alignemnt.plot(type="twoway")
+
+import matplotlib.pyplot as plt
+plt.show()
