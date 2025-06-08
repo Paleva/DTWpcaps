@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 from dtaidistance import dtw
 from dtaidistance import dtw_visualisation as dtwvis
 from dtaidistance import alignment
+from dtaidistance import subsequence
 from matplotlib.patches import ConnectionPatch
 from scapy.all import rdpcap
 from scapy.layers.inet import TCP, IP
@@ -11,7 +12,7 @@ from scapy.layers.inet import TCP, IP
 
 def extract_sequence(pcap_file):
     """
-    Extract sequence of TCP payload lengths and inter-arrival times for all TCP traffic.
+    Extract sequence of TCP payload lengths for all TCP traffic.
     """
     packets = rdpcap(pcap_file)
     lengths = []
@@ -38,7 +39,6 @@ def needleman_wunsch(seq1, seq2):
     algn, s1a, s2a, = alignment.best_alignment(paths, seq1, seq2, gap=0)
     return values, s1a, s2a, algn
 
-
 def smith_waterman(attacker_sequence, victim_sequence):
     from enum import IntEnum
     class Trace(IntEnum):
@@ -60,7 +60,7 @@ def smith_waterman(attacker_sequence, victim_sequence):
     max_score = -1
     max_index = (-1, -1)
 
-    # Fill the matrix
+    # Fill the matrix with scores
     for i in range(1, row):
         for j in range(1, col):
             val1 = attacker_sequence[i - 1]
@@ -86,7 +86,7 @@ def smith_waterman(attacker_sequence, victim_sequence):
                 max_score = matrix[i, j]
                 max_index = (i, j)
 
-    # Traceback
+    # Traceback to find the best alignment sequences
     align1, align2 = [], []
     i, j = max_index
     while tracing_matrix[i, j] != Trace.STOP:
@@ -107,7 +107,7 @@ def smith_waterman(attacker_sequence, victim_sequence):
     return max_score, align1[::-1], align2[::-1]
 
 
-def plot_alignment(seq1, seq2, label1='Seq1', label2='Seq2', ylabel='Value', max_lines=200, filename='alignment_plot.png'):
+def plot_alignment(seq1, seq2, path=None, label1='Seq1', label2='Seq2', ylabel='Value', max_lines=200, filename='alignment_plot.png'):
 
     fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(10, 8), sharex=False)
     ax1.plot(seq1, linewidth=2)
@@ -120,7 +120,7 @@ def plot_alignment(seq1, seq2, label1='Seq1', label2='Seq2', ylabel='Value', max
     ax2.set_xlabel('Series Index')
     ax2.set_title(f'{label2} (packet index)')
     ax2.grid(True, axis='x', linestyle='--', alpha=0.5)
-    
+
     plt.tight_layout()
     plt.savefig(f'figures/{filename}', dpi=300)
 
@@ -150,8 +150,8 @@ def main():
     print(f"NW best score: {nw:.2f}")
     print(f"DTW distance: {distance:.2f}")
     print(f"DTW alignment path length: {len(path)} pairs aligned")
-    plot_alignment(nw_seq1, nw_seq2, label1='Attacker Payloads (NW)', label2='Target Payloads (NW)', ylabel='Payload Length', filename="nw_alignment_plot_streched.png")
-    plot_dtw(seq1, seq2, nw_path, label1='Attacker Payloads (NW)', label2='Target Payloads (NW)', filename="nw_alignment_plot.png")
+    plot_alignment(nw_seq1, nw_seq2, label1='Attacker Payloads (NW aligned)', label2='Target Payloads (NW aligned)', ylabel='Payload Length', filename="nw_alignment_plot_streched.png")
+    plot_dtw(seq1, seq2, nw_path, label1='Attacker Payloads (NW path)', label2='Target Payloads (NW path)', filename="nw_alignment_plot.png")
     plot_dtw(seq1, seq2, path, label1='Attacker Payloads (DTW)', label2='Target Payloads (DTW)', filename="dtw_original.png")
 
 
@@ -170,7 +170,8 @@ def main():
     print(f"DTW distance (sub): {sub_distance:.2f}")
     print(f"DTW alignment path length: {len(dtw_path_sub)} pairs aligned")
     plot_alignment(sw_seq1, sw_seq2, label1='Attacker Subseq (SW)', label2='Target Subseq (SW)', ylabel='Payload Length', filename="sw_subseq_alignment_plot.png")
-    plot_dtw(sw_seq1, sw_seq2, nw_path, label1='Attacker Subseq (SW)', label2='Target Subseq (SW)', filename="sw_subseq_alignment_plot.png")
+    # plot_dtw(sw_seq1, sw_seq2, nw_path, label1='Attacker Subseq (SW)', label2='Target Subseq (SW)', filename="sw_nw_subseq_alignment_plot.png")
     plot_dtw(sw_seq1, sw_seq2, dtw_path_sub, label1='Attacker Subseq (DTW)', label2='Target Subseq (DTW)', filename="sw_subseq_dtw_plot.png")
+    
 if __name__ == '__main__':
     main()
